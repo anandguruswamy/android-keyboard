@@ -379,6 +379,26 @@ val SYSTEM_VOICE_INPUT_PACKAGE = SettingsKey(
     default = ""
 )
 
+val USE_NETWORK_ASR = SettingsKey(
+    key = booleanPreferencesKey("useNetworkAsr"),
+    default = false
+)
+
+val NETWORK_ASR_URL = SettingsKey(
+    key = stringPreferencesKey("networkAsrUrl"),
+    default = "http://192.168.8.234:8200"
+)
+
+val USE_PARAKEET_ASR = SettingsKey(
+    key = booleanPreferencesKey("useParakeetAsr"),
+    default = false
+)
+
+val PARAKEET_ASR_URL = SettingsKey(
+    key = stringPreferencesKey("parakeetAsrUrl"),
+    default = "http://192.168.8.234:8200/parakeet"
+)
+
 val USE_TRANSFORMER_FINETUNING = SettingsKey(
     key = booleanPreferencesKey("useTransformerFinetuning2"),
     default = false

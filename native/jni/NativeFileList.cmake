@@ -15,6 +15,7 @@ set(LATIN_IME_JNI_SRC_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/org_futo_inputmethod_latin_xlm_AdapterTrainer.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/org_futo_inputmethod_latin_xlm_ModelInfoLoader.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/org_futo_voiceinput_WhisperGGML.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/org_futo_voiceinput_ParakeetQnn.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/jni_common.cpp)
 
 set(LATIN_IME_CORE_INCLUDE
@@ -25,7 +26,10 @@ set(LATIN_IME_CORE_INCLUDE
         ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/protobuf-lite
         ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/esaxx
         ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/darts_clone
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/absl)
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/absl
+        ${CMAKE_CURRENT_SOURCE_DIR}/qnn/include
+        ${CMAKE_CURRENT_SOURCE_DIR}/qnn/include/QAIRT
+        ${CMAKE_CURRENT_SOURCE_DIR}/qnn/include/QAIRT/QairtCpp)
 
 set(LATIN_IME_CORE_SRC_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ggml/context.cpp
@@ -40,6 +44,7 @@ set(LATIN_IME_CORE_SRC_FILES
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ggml/common.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ggml/LanguageModel.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/ggml/ModelMeta.cpp
+        ${CMAKE_CURRENT_SOURCE_DIR}/qnn/parakeet_qnn_encoder.cpp
         ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/protobuf-lite/arena.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/protobuf-lite/arenastring.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/src/third_party/protobuf-lite/bytestream.cc

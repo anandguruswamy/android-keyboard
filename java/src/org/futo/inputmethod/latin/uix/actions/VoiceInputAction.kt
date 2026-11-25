@@ -38,6 +38,9 @@ import org.futo.inputmethod.latin.uix.KeyboardManagerForAction
 import org.futo.inputmethod.latin.uix.PREFER_BLUETOOTH
 import org.futo.inputmethod.latin.uix.PersistentActionState
 import org.futo.inputmethod.latin.uix.ResourceHelper
+import org.futo.inputmethod.latin.uix.USE_NETWORK_ASR
+import org.futo.inputmethod.latin.uix.NETWORK_ASR_URL
+import org.futo.inputmethod.latin.uix.USE_PARAKEET_ASR
 import org.futo.inputmethod.latin.uix.USE_PERSONAL_DICT
 import org.futo.inputmethod.latin.uix.USE_VAD_AUTOSTOP
 import org.futo.inputmethod.latin.uix.VERBOSE_PROGRESS
@@ -48,6 +51,8 @@ import org.futo.inputmethod.latin.uix.utils.ModelOutputSanitizer
 import org.futo.inputmethod.latin.xlm.UserDictionaryObserver
 import org.futo.inputmethod.updates.openURI
 import org.futo.voiceinput.shared.ModelDoesNotExistException
+import org.futo.voiceinput.shared.NetworkRecognitionConfiguration
+import org.futo.voiceinput.shared.ParakeetRecognitionConfiguration
 import org.futo.voiceinput.shared.RecognizerView
 import org.futo.voiceinput.shared.RecognizerViewListener
 import org.futo.voiceinput.shared.RecognizerViewSettings
@@ -56,6 +61,7 @@ import org.futo.voiceinput.shared.SoundPlayer
 import org.futo.voiceinput.shared.types.Language
 import org.futo.voiceinput.shared.types.ModelLoader
 import org.futo.voiceinput.shared.types.getLanguageFromWhisperString
+import org.futo.voiceinput.shared.parakeet.ParakeetModelAssets
 import org.futo.voiceinput.shared.ui.MicrophoneDeviceState
 import org.futo.voiceinput.shared.whisper.DecodingConfiguration
 import org.futo.voiceinput.shared.whisper.ModelManager
@@ -130,6 +136,9 @@ private class VoiceInputActionWindow(
         val useVAD = context.getSetting(USE_VAD_AUTOSTOP)
         val usePersonalDict = context.getSetting(USE_PERSONAL_DICT)
         val animateBubble = context.getSetting(ANIMATE_BUBBLE)
+        val useNetworkAsr = context.getSetting(USE_NETWORK_ASR)
+        val networkAsrUrl = context.getSetting(NETWORK_ASR_URL)
+        val useParakeetAsr = context.getSetting(USE_PARAKEET_ASR)
 
         val primaryModel = model
         val languageSpecificModels = mutableMapOf<Language, ModelLoader>()
@@ -160,7 +169,24 @@ private class VoiceInputActionWindow(
                 requestAudioFocus = requestAudioFocus,
                 canExpandSpace = canExpandSpace,
                 useVADAutoStop = useVAD
-            )
+            ),
+            networkConfiguration = if (useNetworkAsr && networkAsrUrl.isNotBlank()) {
+                NetworkRecognitionConfiguration(baseUrl = networkAsrUrl)
+            } else {
+                null
+            },
+            parakeetConfiguration = if (useParakeetAsr && ParakeetModelAssets.isComplete(context)) {
+                ParakeetRecognitionConfiguration(
+                    featureExtractorPath = ParakeetModelAssets.localPath(context, "nemo128.onnx"),
+                    decoderJointPath = ParakeetModelAssets.localPath(context, "decoder_joint-model.onnx"),
+                    vocabPath = ParakeetModelAssets.localPath(context, "vocab.txt"),
+                    qnnBackendLibPath = ParakeetModelAssets.localPath(context, "libQnnHtp.so"),
+                    qnnSystemLibPath = ParakeetModelAssets.localPath(context, "libQnnSystem.so"),
+                    qnnContextBinaryPath = ParakeetModelAssets.localPath(context, "parakeet-enc-601_ctx_qnn.bin")
+                )
+            } else {
+                null
+            }
         )
     }
 

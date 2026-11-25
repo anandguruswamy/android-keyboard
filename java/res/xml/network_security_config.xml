@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Allows plain HTTP only to the homelab boards, for the optional network-ASR voice
+     input backend. If you change the Network ASR server URL setting to a different
+     LAN host, add it here too, or cleartext requests to it will be blocked. -->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">192.168.8.234</domain>
+        <domain includeSubdomains="false">192.168.8.189</domain>
+    </domain-config>
+</network-security-config>

@@ -31,6 +31,8 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.yield
 import org.futo.voiceinput.shared.ggml.InferenceCancelledException
 import org.futo.voiceinput.shared.ggml.InvalidModelException
+import org.futo.voiceinput.shared.network.NetworkTranscriber
+import org.futo.voiceinput.shared.parakeet.ParakeetPipeline
 import org.futo.voiceinput.shared.types.AudioRecognizerListener
 import org.futo.voiceinput.shared.types.InferenceState
 import org.futo.voiceinput.shared.types.Language
@@ -84,10 +86,27 @@ data class RecordingSettings(
     val useVADAutoStop: Boolean
 )
 
+/** When set, transcription is sent to a LAN ASR server (e.g. Babli's homelab-gateway) instead of running on-device. */
+data class NetworkRecognitionConfiguration(
+    val baseUrl: String
+)
+
+/** When set, transcription runs fully on-device via the Parakeet-TDT NPU pipeline instead of Whisper/GGML or network ASR. */
+data class ParakeetRecognitionConfiguration(
+    val featureExtractorPath: String,
+    val decoderJointPath: String,
+    val vocabPath: String,
+    val qnnBackendLibPath: String,
+    val qnnSystemLibPath: String,
+    val qnnContextBinaryPath: String
+)
+
 data class AudioRecognizerSettings(
     val modelRunConfiguration: MultiModelRunConfiguration,
     val decodingConfiguration: DecodingConfiguration,
-    val recordingConfiguration: RecordingSettings
+    val recordingConfiguration: RecordingSettings,
+    val networkConfiguration: NetworkRecognitionConfiguration? = null,
+    val parakeetConfiguration: ParakeetRecognitionConfiguration? = null
 )
 
 class ModelDoesNotExistException(val models: List<ModelLoader>) : Throwable()
@@ -103,6 +122,7 @@ class AudioRecognizer(
     private var recorder: AudioRecord? = null
 
     private val modelRunner = MultiModelRunner(modelManager)
+    private var parakeetPipeline: ParakeetPipeline? = null
 
     private val canExpandSpace = settings.recordingConfiguration.canExpandSpace
     private val useVAD = settings.recordingConfiguration.useVADAutoStop
@@ -194,6 +214,8 @@ class AudioRecognizer(
 
     @Throws(ModelDoesNotExistException::class)
     private fun verifyModelsExist() {
+        if (settings.networkConfiguration != null || settings.parakeetConfiguration != null) return
+
         val modelsThatDoNotExist = mutableListOf<ModelLoader>()
 
         if (!settings.modelRunConfiguration.primaryModel.exists(context)) {
@@ -226,6 +248,11 @@ class AudioRecognizer(
         isRecording = false
 
         modelRunner.cancelAll()
+
+        parakeetPipeline?.let { pipeline ->
+            parakeetPipeline = null
+            lifecycleScope.launch(Dispatchers.Default) { pipeline.close() }
+        }
 
         unfocusAudio()
 
@@ -293,6 +320,23 @@ class AudioRecognizer(
     }
 
     private suspend fun preloadModels() {
+        if (settings.networkConfiguration != null) return
+
+        val parakeet = settings.parakeetConfiguration
+        if (parakeet != null) {
+            if (parakeetPipeline == null) {
+                parakeetPipeline = ParakeetPipeline(
+                    featureExtractorPath = parakeet.featureExtractorPath,
+                    decoderJointPath = parakeet.decoderJointPath,
+                    vocabPath = parakeet.vocabPath,
+                    qnnBackendLibPath = parakeet.qnnBackendLibPath,
+                    qnnSystemLibPath = parakeet.qnnSystemLibPath,
+                    qnnContextBinaryPath = parakeet.qnnContextBinaryPath
+                )
+            }
+            return
+        }
+
         modelRunner.preload(settings.modelRunConfiguration)
     }
 
@@ -551,16 +595,36 @@ class AudioRecognizer(
         val floatArray = floatSamples.array().sliceArray(0 until floatSamples.position())
 
         yield()
-        val outputText = try {
-             modelRunner.run(
-                floatArray,
-                settings.modelRunConfiguration,
-                settings.decodingConfiguration,
-                runnerCallback
-            ).trim()
-        }catch(e: InferenceCancelledException) {
-            yield()
-            return
+        val network = settings.networkConfiguration
+        val parakeet = settings.parakeetConfiguration
+        val outputText = if (network != null) {
+            listener.decodingStatus(InferenceState.Encoding)
+            try {
+                NetworkTranscriber.transcribe(network.baseUrl, floatArray).trim()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ""
+            }
+        } else if (parakeet != null) {
+            listener.decodingStatus(InferenceState.Encoding)
+            try {
+                parakeetPipeline?.transcribe(floatArray)?.trim() ?: ""
+            } catch (e: Exception) {
+                e.printStackTrace()
+                ""
+            }
+        } else {
+            try {
+                modelRunner.run(
+                    floatArray,
+                    settings.modelRunConfiguration,
+                    settings.decodingConfiguration,
+                    runnerCallback
+                ).trim()
+            } catch (e: InferenceCancelledException) {
+                yield()
+                return
+            }
         }
 
         val text = when {
